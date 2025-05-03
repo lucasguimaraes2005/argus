@@ -134,6 +134,47 @@ class ArgusSystem:
         """
         plate = ''.join(c for c in plate if c.isalnum()).upper()
         return plate
+
+    def _preprocess_plate_image(self, plate_img):
+        """
+        Pré-processa a imagem da placa para melhorar o OCR.
+        
+        Args:
+            plate_img: Imagem recortada da placa
+            
+        Returns:
+            Imagem processada para OCR
+        """
+        gray = cv2.cvtColor(plate_img, cv2.COLOR_BGR2GRAY)
+        
+        blur = cv2.GaussianBlur(gray, (5, 5), 0)
+        
+        _, thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        
+        kernel = np.ones((3, 3), np.uint8)
+        dilated = cv2.dilate(thresh, kernel, iterations=1)
+        
+        return dilated
+    
+    def _recognize_plate(self, plate_img):
+        """
+        Executa OCR para reconhecer o texto da placa.
+        
+        Args:
+            plate_img: Imagem recortada da placa
+            
+        Returns:
+            str: Texto da placa reconhecido
+        """
+        processed_img = self._preprocess_plate_image(plate_img)
+        
+        config = '--psm 8 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+        
+        text = pytesseract.image_to_string(processed_img, config=config)
+        
+        plate_text = ''.join(c for c in text if c.isalnum()).upper()
+        
+        return plate_text
         
 
 
