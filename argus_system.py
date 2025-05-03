@@ -9,15 +9,9 @@ import pytesseract
 
 
 class ArgusSystem:
-    """Sistema principal para detecção e verificação de placas de veículos."""
     
     def __init__(self, db_file='db_veiculos_roubados.csv'):
-        """
-        Inicializa o sistema Argus.
-        
-        Args:
-            db_file (str): Caminho para arquivo CSV com database de veículos roubados.
-        """
+
         print("Inicializando sistema Argus...")
         
         pytesseract.pytesseract.tesseract_cmd = '/usr/bin/tesseract'
@@ -33,7 +27,6 @@ class ArgusSystem:
             os.makedirs(self.alerts_dir)
     
     def _load_database(self):
-        """Carrega a base de dados de veículos roubados."""
         try:
             if os.path.exists(self.db_file):
                 df = pd.read_csv(self.db_file)
@@ -49,7 +42,6 @@ class ArgusSystem:
             return pd.DataFrame(columns=['placa', 'modelo', 'cor', 'data_roubo'])
 
     def _load_detector(self):
-        """Carrega o detector de placas."""
         try:
             cascade_path = cv2.data.haarcascades + 'haarcascade_russian_plate_number.xml'
             
@@ -65,14 +57,7 @@ class ArgusSystem:
     
     
     def add_stolen_vehicle(self, plate, model="Desconhecido", color="Desconhecido"):
-        """
-        Adiciona um veículo roubado à base de dados.
-        
-        Args:
-            plate (str): Número da placa do veículo
-            model (str): Modelo do veículo
-            color (str): Cor do veículo
-        """
+
         plate = self._normalize_plate(plate)
         
         if self.is_stolen(plate):
@@ -92,12 +77,7 @@ class ArgusSystem:
         return True
     
     def remove_stolen_vehicle(self, plate):
-        """
-        Remove um veículo da base de dados de roubados.
-        
-        Args:
-            plate (str): Número da placa do veículo
-        """
+
         plate = self._normalize_plate(plate)
         
         if not self.is_stolen(plate):
@@ -110,41 +90,17 @@ class ArgusSystem:
         return True
     
     def is_stolen(self, plate):
-        """
-        Verifica se um veículo está na base de dados de roubados.
-        
-        Args:
-            plate (str): Número da placa do veículo
-            
-        Returns:
-            bool: True se o veículo está registrado como roubado
-        """
+
         plate = self._normalize_plate(plate)
         return plate in self.stolen_vehicles['placa'].values
     
     def _normalize_plate(self, plate):
-        """
-        Normaliza a placa para o formato padrão.
-        
-        Args:
-            plate (str): Placa a ser normalizada
-            
-        Returns:
-            str: Placa normalizada
-        """
+
         plate = ''.join(c for c in plate if c.isalnum()).upper()
         return plate
 
     def _preprocess_plate_image(self, plate_img):
-        """
-        Pré-processa a imagem da placa para melhorar o OCR.
-        
-        Args:
-            plate_img: Imagem recortada da placa
-            
-        Returns:
-            Imagem processada para OCR
-        """
+
         gray = cv2.cvtColor(plate_img, cv2.COLOR_BGR2GRAY)
         
         blur = cv2.GaussianBlur(gray, (5, 5), 0)
@@ -157,15 +113,7 @@ class ArgusSystem:
         return dilated
     
     def _recognize_plate(self, plate_img):
-        """
-        Executa OCR para reconhecer o texto da placa.
-        
-        Args:
-            plate_img: Imagem recortada da placa
-            
-        Returns:
-            str: Texto da placa reconhecido
-        """
+
         processed_img = self._preprocess_plate_image(plate_img)
         
         config = '--psm 8 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
@@ -177,15 +125,7 @@ class ArgusSystem:
         return plate_text
 
     def _detect_plates_haarcascade(self, frame):
-        """
-        Detecta placas usando Haar Cascade.
-        
-        Args:
-            frame: Frame do vídeo
-            
-        Returns:
-            list: Lista de regiões (x, y, w, h) onde placas foram detectadas
-        """
+
         if self.plate_cascade is None:
             return []
         
@@ -202,16 +142,7 @@ class ArgusSystem:
         return plates
     
     def _detect_plates_contour(self, frame):
-        """
-        Método alternativo para detectar placas usando contornos.
-        Útil quando o detector Haar Cascade não funciona bem.
-        
-        Args:
-            frame: Frame do vídeo
-            
-        Returns:
-            list: Lista de regiões (x, y, w, h) onde placas podem estar
-        """
+
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         
         blur = cv2.GaussianBlur(gray, (5, 5), 0)
@@ -351,8 +282,87 @@ def criar_db_exemplo():
     print("Base de dados de exemplo criada com sucesso!")
 
 
-if __name__ == "__main__":
+def menu_principal():
+    
     if not os.path.exists('db_veiculos_roubados.csv'):
         criar_db_exemplo()
     
     argus = ArgusSystem()
+    
+    while True:
+        print("\n" + "="*50)
+        print("🔍 SISTEMA ARGUS - DETECTOR DE PLACAS 🔍")
+        print("="*50)
+        print("1. Processar vídeo")
+        print("2. Adicionar veículo roubado à base de dados")
+        print("3. Remover veículo da base de dados")
+        print("4. Verificar placa específica")
+        print("5. Listar veículos roubados")
+        print("6. Sair")
+        print("="*50)
+        
+        opcao = input("Escolha uma opção: ")
+        
+        if opcao == '1':
+            video_path = input("Caminho do vídeo a ser processado: ")
+            if not os.path.exists(video_path):
+                print(f"Erro: O arquivo {video_path} não existe!")
+                continue
+                
+            output = input("Salvar vídeo processado? (s/n): ").lower()
+            output_path = None
+            if output == 's':
+                output_path = input("Caminho para salvar o vídeo processado: ")
+            
+            argus.process_video(video_path, output_path)
+            
+        elif opcao == '2':
+            placa = input("Digite a placa do veículo roubado: ")
+            modelo = input("Digite o modelo do veículo (ou deixe em branco): ")
+            cor = input("Digite a cor do veículo (ou deixe em branco): ")
+            
+            if not modelo:
+                modelo = "Desconhecido"
+            if not cor:
+                cor = "Desconhecido"
+                
+            argus.add_stolen_vehicle(placa, modelo, cor)
+            
+        elif opcao == '3':
+            placa = input("Digite a placa do veículo a ser removido: ")
+            argus.remove_stolen_vehicle(placa)
+            
+        elif opcao == '4':
+            placa = input("Digite a placa a ser verificada: ")
+            resultado = argus.is_stolen(placa)
+            
+            if resultado:
+                print(f"⚠️ ATENÇÃO: A placa {placa} está registrada como veículo roubado!")
+            else:
+                print(f"✅ A placa {placa} NÃO está registrada como veículo roubado.")
+                
+        elif opcao == '5':
+            if len(argus.stolen_vehicles) == 0:
+                print("A base de dados está vazia!")
+            else:
+                print("\nVEÍCULOS ROUBADOS REGISTRADOS:")
+                print("-"*60)
+                print(f"{'PLACA':<10} | {'MODELO':<20} | {'COR':<10} | {'DATA DO ROUBO':<15}")
+                print("-"*60)
+                
+                for _, row in argus.stolen_vehicles.iterrows():
+                    print(f"{row['placa']:<10} | {row['modelo']:<20} | {row['cor']:<10} | {row['data_roubo']:<15}")
+                
+                print("-"*60)
+                print(f"Total: {len(argus.stolen_vehicles)} veículos")
+                
+        elif opcao == '6':
+            print("Encerrando o Sistema Argus. Até logo!")
+            break
+            
+        else:
+            print("Opção inválida! Por favor, escolha uma opção válida.")
+
+
+if __name__ == "__main__":
+    menu_principal()
