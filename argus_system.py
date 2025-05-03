@@ -2,6 +2,10 @@
 import os
 import pandas as pd
 from datetime import datetime
+import cv2
+import numpy as np
+import pytesseract
+
 
 
 class ArgusSystem:
@@ -16,8 +20,13 @@ class ArgusSystem:
         """
         print("Inicializando sistema Argus...")
         
+        pytesseract.pytesseract.tesseract_cmd = '/usr/bin/tesseract'
+
         self.db_file = db_file
         self.stolen_vehicles = self._load_database()
+        
+        self.plate_cascade = None
+        self._load_detector()
         
         self.alerts_dir = 'alertas'
         if not os.path.exists(self.alerts_dir):
@@ -38,6 +47,22 @@ class ArgusSystem:
         except Exception as e:
             print(f"Erro ao carregar base de dados: {str(e)}")
             return pd.DataFrame(columns=['placa', 'modelo', 'cor', 'data_roubo'])
+
+    def _load_detector(self):
+        """Carrega o detector de placas."""
+        try:
+            cascade_path = cv2.data.haarcascades + 'haarcascade_russian_plate_number.xml'
+            
+            if os.path.exists(cascade_path):
+                self.plate_cascade = cv2.CascadeClassifier(cascade_path)
+                print("Detector de placas carregado com sucesso")
+            else:
+                self.plate_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+                print("Detector padrão carregado. Recomenda-se usar um detector específico para placas")
+        except Exception as e:
+            print(f"Erro ao carregar detector: {str(e)}")
+            print("O sistema usará detecção básica de contornos")
+    
     
     def add_stolen_vehicle(self, plate, model="Desconhecido", color="Desconhecido"):
         """
