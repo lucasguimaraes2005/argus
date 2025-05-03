@@ -38,6 +38,78 @@ class ArgusSystem:
         except Exception as e:
             print(f"Erro ao carregar base de dados: {str(e)}")
             return pd.DataFrame(columns=['placa', 'modelo', 'cor', 'data_roubo'])
+    
+    def add_stolen_vehicle(self, plate, model="Desconhecido", color="Desconhecido"):
+        """
+        Adiciona um veículo roubado à base de dados.
+        
+        Args:
+            plate (str): Número da placa do veículo
+            model (str): Modelo do veículo
+            color (str): Cor do veículo
+        """
+        plate = self._normalize_plate(plate)
+        
+        if self.is_stolen(plate):
+            print(f"A placa {plate} já está registrada na base de dados")
+            return False
+        
+        new_data = pd.DataFrame({
+            'placa': [plate],
+            'modelo': [model],
+            'cor': [color],
+            'data_roubo': [datetime.now().strftime("%Y-%m-%d")]
+        })
+        
+        self.stolen_vehicles = pd.concat([self.stolen_vehicles, new_data], ignore_index=True)
+        self.stolen_vehicles.to_csv(self.db_file, index=False)
+        print(f"Veículo com placa {plate} adicionado à base de dados")
+        return True
+    
+    def remove_stolen_vehicle(self, plate):
+        """
+        Remove um veículo da base de dados de roubados.
+        
+        Args:
+            plate (str): Número da placa do veículo
+        """
+        plate = self._normalize_plate(plate)
+        
+        if not self.is_stolen(plate):
+            print(f"A placa {plate} não está na base de dados")
+            return False
+        
+        self.stolen_vehicles = self.stolen_vehicles[self.stolen_vehicles['placa'] != plate]
+        self.stolen_vehicles.to_csv(self.db_file, index=False)
+        print(f"Veículo com placa {plate} removido da base de dados")
+        return True
+    
+    def is_stolen(self, plate):
+        """
+        Verifica se um veículo está na base de dados de roubados.
+        
+        Args:
+            plate (str): Número da placa do veículo
+            
+        Returns:
+            bool: True se o veículo está registrado como roubado
+        """
+        plate = self._normalize_plate(plate)
+        return plate in self.stolen_vehicles['placa'].values
+    
+    def _normalize_plate(self, plate):
+        """
+        Normaliza a placa para o formato padrão.
+        
+        Args:
+            plate (str): Placa a ser normalizada
+            
+        Returns:
+            str: Placa normalizada
+        """
+        plate = ''.join(c for c in plate if c.isalnum()).upper()
+        return plate
+        
 
 
 def criar_db_exemplo():
