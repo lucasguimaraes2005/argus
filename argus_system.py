@@ -232,7 +232,30 @@ class ArgusSystem:
                 possible_plates.append((x, y, w, h))
         
         return possible_plates
+    
+    def _generate_alert(self, plate_text, plate_img):
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
+        img_path = os.path.join(self.alerts_dir, f"alerta_{plate_text}_{timestamp}.jpg")
+        cv2.imwrite(img_path, plate_img)
+        
+        vehicle_info = self.stolen_vehicles[self.stolen_vehicles['placa'] == self._normalize_plate(plate_text)]
+        
+        with open(os.path.join(self.alerts_dir, "registros_alertas.txt"), "a") as f:
+            f.write(f"\n--- ALERTA: Veículo Roubado Detectado ---\n")
+            f.write(f"Data/Hora: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n")
+            f.write(f"Placa: {plate_text}\n")
+            
+            if not vehicle_info.empty:
+                f.write(f"Modelo: {vehicle_info['modelo'].values[0]}\n")
+                f.write(f"Cor: {vehicle_info['cor'].values[0]}\n")
+                f.write(f"Data do Roubo: {vehicle_info['data_roubo'].values[0]}\n")
+            
+            f.write(f"Imagem salva em: {img_path}\n")
+            f.write("-----------------------------------------\n")
+        
+        print(f"⚠️ ALERTA: Veículo roubado detectado - Placa: {plate_text}")
 
 
 def criar_db_exemplo():
