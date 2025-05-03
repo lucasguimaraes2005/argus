@@ -175,6 +175,63 @@ class ArgusSystem:
         plate_text = ''.join(c for c in text if c.isalnum()).upper()
         
         return plate_text
+
+    def _detect_plates_haarcascade(self, frame):
+        """
+        Detecta placas usando Haar Cascade.
+        
+        Args:
+            frame: Frame do vídeo
+            
+        Returns:
+            list: Lista de regiões (x, y, w, h) onde placas foram detectadas
+        """
+        if self.plate_cascade is None:
+            return []
+        
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        
+        plates = self.plate_cascade.detectMultiScale(
+            gray,
+            scaleFactor=1.1,
+            minNeighbors=5,
+            minSize=(60, 20),
+            flags=cv2.CASCADE_SCALE_IMAGE
+        )
+        
+        return plates
+    
+    def _detect_plates_contour(self, frame):
+        """
+        Método alternativo para detectar placas usando contornos.
+        Útil quando o detector Haar Cascade não funciona bem.
+        
+        Args:
+            frame: Frame do vídeo
+            
+        Returns:
+            list: Lista de regiões (x, y, w, h) onde placas podem estar
+        """
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        
+        blur = cv2.GaussianBlur(gray, (5, 5), 0)
+        
+        edges = cv2.Canny(blur, 50, 150)
+        
+        kernel = np.ones((3, 3), np.uint8)
+        dilated = cv2.dilate(edges, kernel, iterations=2)
+        
+        contours, _ = cv2.findContours(dilated, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        
+        possible_plates = []
+        for contour in contours:
+            x, y, w, h = cv2.boundingRect(contour)
+            aspect_ratio = float(w) / h
+            
+            if 1.5 <= aspect_ratio <= 5 and w > 60 and h > 20:
+                possible_plates.append((x, y, w, h))
+        
+        return possible_plates
         
 
 
