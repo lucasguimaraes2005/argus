@@ -232,6 +232,86 @@ class ArgusSystem:
                 possible_plates.append((x, y, w, h))
         
         return possible_plates
+
+    def process_video(self, video_path, output_path=None, display=True):
+
+        cap = cv2.VideoCapture(video_path)
+        if not cap.isOpened():
+            print(f"Erro ao abrir o vídeo: {video_path}")
+            return
+        
+        if output_path:
+            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            fourcc = cv2.VideoWriter_fourcc(*'XVID')
+            out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+        
+        detected_plates = set()
+        
+        print(f"Processando vídeo: {video_path}")
+        frame_count = 0
+        
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            
+            frame_count += 1
+            if frame_count % 5 != 0: 
+                if display:
+                    cv2.imshow('Argus - Detector de Placas', frame)
+                if output_path:
+                    out.write(frame)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+                continue
+            
+            result_frame = frame.copy()
+            
+            plates = self._detect_plates_haarcascade(frame)
+            
+            if len(plates) == 0:
+                plates = self._detect_plates_contour(frame)
+            
+            for (x, y, w, h) in plates:
+                plate_img = frame[y:y+h, x:x+w]
+                
+                if plate_img.size == 0:
+                    continue
+                
+                cv2.rectangle(result_frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+                
+                plate_text = self._recognize_plate(plate_img)
+                
+                if len(plate_text) >= 6:  
+                    is_stolen = self.is_stolen(plate_text)
+                    
+                    status_text = f"ALERTA: {plate_text}" if is_stolen else plate_text
+                    color = (0, 0, 255) if is_stolen else (255, 0, 0)
+                    cv2.putText(result_frame, status_text, (x, y-10), 
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+                    
+                    if is_stolen and plate_text not in detected_plates:
+                        detected_plates.add(plate_text)
+                        self._generate_alert(plate_text, plate_img)
+            
+            if display:
+                cv2.imshow('Argus - Detector de Placas', result_frame)
+            
+            if output_path:
+                out.write(result_frame)
+            
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+        
+        cap.release()
+        if output_path:
+            out.release()
+        cv2.destroyAllWindows()
+        
+        print(f"Processamento concluído. {len(detected_plates)} placas de veículos roubados detectadas.")
+        return detected_plates
     
     def _generate_alert(self, plate_text, plate_img):
 
